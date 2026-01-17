@@ -12,6 +12,9 @@
 #pragma once
 
 #include <stdint.h>
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
 #include "soc_support.h"
 
 int uart_rx_one_char(uint8_t *ch);
@@ -78,6 +81,44 @@ void MD5Init(struct MD5Context *ctx);
 void MD5Update(struct MD5Context *ctx, void *buf, uint32_t len);
 void MD5Final(uint8_t digest[16], struct MD5Context *ctx);
 #endif // not ESP32C2
+
+/* Hardware SHA functions available in ESP32-C3 ROM */
+#ifdef ESP32C3
+/* ets_status_t for ROM function return values */
+typedef enum {
+    ETS_OK     = 0,
+    ETS_FAILED = 1,
+    ETS_PENDING = 2,
+    ETS_BUSY = 3,
+    ETS_CANCEL = 4,
+} ets_status_t;
+
+typedef enum {
+    SHA1 = 0,
+    SHA2_224,
+    SHA2_256,
+    SHA_TYPE_MAX
+} SHA_TYPE;
+
+/* SHA context - must match ROM structure exactly */
+typedef struct {
+    bool start;
+    bool in_hardware;               /* Is context currently in peripheral? */
+    SHA_TYPE type;
+    uint32_t state[16];             /* For SHA1/SHA224/SHA256, uses 8 */
+    unsigned char buffer[128];      /* For SHA1/SHA224/SHA256, uses 64 */
+    uint32_t total_bits[4];
+} SHA_CTX;
+
+void ets_sha_enable(void);
+void ets_sha_disable(void);
+ets_status_t ets_sha_init(SHA_CTX *ctx, SHA_TYPE type);
+ets_status_t ets_sha_starts(SHA_CTX *ctx, uint16_t sha512_t);
+void ets_sha_get_state(SHA_CTX *ctx);
+void ets_sha_process(SHA_CTX *ctx, const unsigned char *input);
+void ets_sha_update(SHA_CTX *ctx, const unsigned char *input, uint32_t input_bytes, bool update_ctx);
+ets_status_t ets_sha_finish(SHA_CTX *ctx, unsigned char *output);
+#endif // ESP32C3
 
 typedef struct {
     uint32_t device_id;

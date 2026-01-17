@@ -19,6 +19,8 @@ void handle_flash_read(uint32_t addr, uint32_t len, uint32_t block_size, uint32_
 
 int handle_flash_get_md5sum(uint32_t addr, uint32_t len);
 
+int handle_flash_get_sha256sum(uint32_t addr, uint32_t len);
+
 int handle_flash_read_chip_id();
 
 esp_command_error handle_spi_set_params(uint32_t *args, int *status);

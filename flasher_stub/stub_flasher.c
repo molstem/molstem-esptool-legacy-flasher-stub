@@ -230,7 +230,10 @@ void cmd_loop() {
         }
         break;
     case ESP_FLASH_VERIFY_MD5:
-        resp.len_ret = 16 + 2; /* Will sent 16 bytes of data with MD5 value */
+        resp.len_ret = 16 + 2; /* Will send 16 bytes of data with MD5 value */
+        break;
+    case ESP_FLASH_VERIFY_SHA256:
+        resp.len_ret = 32 + 2; /* Will send 32 bytes of data with SHA256 value */
         break;
     #if ESP32S2_OR_LATER
     case ESP_GET_SECURITY_INFO:
@@ -308,6 +311,10 @@ void cmd_loop() {
          but this is in ESP32 ROM so we can't mess with it.
       */
       error = verify_data_len(command, 16) || handle_flash_get_md5sum(data_words[0], data_words[1]);
+      break;
+    case ESP_FLASH_VERIFY_SHA256:
+      /* SHA256 verification: params are addr (offset) and len (size) */
+      error = verify_data_len(command, 16) || handle_flash_get_sha256sum(data_words[0], data_words[1]);
       break;
     case ESP_FLASH_BEGIN:
       /* parameters (interpreted differently to ROM flasher):
@@ -569,6 +576,38 @@ void stub_main()
   #endif //ESP32S3 && !ESP32S3BETA2
   SPIParamCfg(0, FLASH_MAX_SIZE, FLASH_BLOCK_SIZE, FLASH_SECTOR_SIZE,
               FLASH_PAGE_SIZE, FLASH_STATUS_MASK);
+
+#ifdef ESP32C3
+  /* Configure SPI flash for 40MHz DIO mode
+   * SPI_MEM_CLOCK_REG (0x60002014) controls flash clock divider
+   * For 40MHz from 80MHz source: clkcnt_n=1, clkcnt_h=0, clkcnt_l=1 (div by 2)
+   *
+   * SPI_MEM_CTRL_REG (0x60002008) controls flash mode
+   * Bit 24 (FDIO_MODE): 1 = DIO mode for fast read
+   * Bit 23 (FDIN_DUAL): 1 = dual mode for data read
+   * Bit 22 (FDOUT_DUAL): 1 = dual mode for data out
+   */
+  {
+    /* Set SPI clock divider for 40MHz (divide by 2 from 80MHz)
+     * Register layout: [31] clk_equ_sysclk, [23:18] clkdiv_pre, [17:12] clkcnt_h, [11:6] clkcnt_n, [5:0] clkcnt_l
+     * For div=2: clkcnt_n=1, clkcnt_h=0, clkcnt_l=1, clk_equ_sysclk=0
+     * Value: (1 << 6) | 1 = 0x41
+     */
+    volatile uint32_t *spi_clock_reg = (volatile uint32_t *)0x60002014;
+    *spi_clock_reg = 0x00000041;  /* 40MHz (div by 2) */
+
+    /* Configure DIO mode in SPI_MEM_CTRL_REG
+     * Bit 24: FDIO_MODE = 1 (DIO for fast read)
+     * Bit 23: FDIN_DUAL = 1 (dual data in)
+     * Bit 22: FDOUT_DUAL = 0 (single data out for address/command)
+     */
+    volatile uint32_t *spi_ctrl_reg = (volatile uint32_t *)0x60002008;
+    uint32_t ctrl_val = *spi_ctrl_reg;
+    ctrl_val |= (1 << 24) | (1 << 23);  /* Enable DIO mode */
+    ctrl_val &= ~((1 << 14) | (1 << 13)); /* Clear QIO mode bits if set */
+    *spi_ctrl_reg = ctrl_val;
+  }
+#endif /* ESP32C3 */
 
   /* Configurations are done, now run the loop to receive and handle commands. */
   cmd_loop();

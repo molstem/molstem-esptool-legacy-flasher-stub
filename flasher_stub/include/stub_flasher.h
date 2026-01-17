@@ -55,6 +55,9 @@ typedef enum {
   /* Commands supported by the ESP32S2 and later bootloaders */
   ESP_GET_SECURITY_INFO = 0x14,
 
+  /* Custom command for SHA256 verification */
+  ESP_FLASH_VERIFY_SHA256 = 0x15,
+
   /* Stub-only commands */
   ESP_ERASE_FLASH = 0xD0,
   ESP_ERASE_REGION = 0xD1,
