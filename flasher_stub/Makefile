@@ -45,6 +45,9 @@ EXTRA_CFLAGS_ESPRISCV32 ?=
 # Python command to invoke wrap_stub.py
 WRAP_STUB ?= ./wrap_stub.py
 
+# Output path for ESP32-C3 stub header (relative to this Makefile)
+ESP32C3_STUB_HPP ?= ../../firmware/Bootloader/EasyPCR/v2/esp32c3_stub.hpp
+
 # Pass V=1 to see the commands being executed by make
 ifneq ("$(V)","1")
 Q = @
@@ -105,9 +108,36 @@ STUBS_ELF += \
   $(STUB_ELF_32P4)
 endif
 
-.PHONY: all clean install
+.PHONY: all clean install esp32c3-hpp
 
-all: $(STUBS_ELF:.elf=.json)
+all: $(STUBS_ELF:.elf=.json) esp32c3-hpp
+
+# Generate ESP32-C3 stub header for EasyPCR firmware
+esp32c3-hpp: $(BUILD_DIR)/esp32c3.json
+	@echo "  GEN_HPP $^ -> $(ESP32C3_STUB_HPP)"
+	$(Q) python3 -c '\
+import json, base64, sys; \
+f = open("$<", "r"); data = json.load(f); f.close(); \
+text = base64.b64decode(data["text"]); \
+text_data = base64.b64decode(data["data"]); \
+entry = data["entry"]; text_start = data["text_start"]; \
+data_start = data["data_start"]; bss_start = data["bss_start"]; \
+h = "// ESP32-C3 Stub Flasher Binary Data (with hardware SHA256 support)\n"; \
+h += "// Generated from esptool-legacy-flasher-stub build/esp32c3.json\n\n"; \
+h += "#pragma once\n#include <cstdint>\n\nnamespace esp32c3_stub {\n\n"; \
+h += "constexpr uint32_t STUB_ENTRY = 0x{:08X};\n".format(entry); \
+h += "constexpr uint32_t STUB_TEXT_START = 0x{:08X};\n".format(text_start); \
+h += "constexpr uint32_t STUB_DATA_START = 0x{:08X};\n".format(data_start); \
+h += "constexpr uint32_t STUB_BSS_START = 0x{:08X};\n\n".format(bss_start); \
+h += "constexpr size_t STUB_TEXT_SIZE = {};\n".format(len(text)); \
+h += "constexpr size_t STUB_DATA_SIZE = {};\n\n".format(len(text_data)); \
+h += "alignas(4) constexpr uint8_t STUB_TEXT[STUB_TEXT_SIZE] = {\n"; \
+[h := h + "    " + ", ".join("0x{:02X}".format(b) for b in text[i:i+16]) + ",\n" for i in range(0, len(text), 16)]; \
+h += "};\n\nalignas(4) constexpr uint8_t STUB_DATA[STUB_DATA_SIZE] = {\n"; \
+[h := h + "    " + ", ".join("0x{:02X}".format(b) for b in text_data[i:i+16]) + ",\n" for i in range(0, len(text_data), 16)]; \
+h += "};\n\n} // namespace esp32c3_stub\n"; \
+o = open("$(ESP32C3_STUB_HPP)", "w"); o.write(h); o.close(); \
+print("  Generated {} ({} text, {} data bytes)".format("$(ESP32C3_STUB_HPP)", len(text), len(text_data)))'
 
 install: $(patsubst $(BUILD_DIR)/%.elf,$(ESPTOOL_STUBS_DIR)/%.json,$(STUBS_ELF))
 

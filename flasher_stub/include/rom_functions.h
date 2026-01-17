@@ -118,6 +118,37 @@ void ets_sha_get_state(SHA_CTX *ctx);
 void ets_sha_process(SHA_CTX *ctx, const unsigned char *input);
 void ets_sha_update(SHA_CTX *ctx, const unsigned char *input, uint32_t input_bytes, bool update_ctx);
 ets_status_t ets_sha_finish(SHA_CTX *ctx, unsigned char *output);
+
+/* SPI Flash read mode configuration for faster reads */
+typedef enum {
+    ESP_ROM_SPIFLASH_QIO_MODE = 0,
+    ESP_ROM_SPIFLASH_QOUT_MODE,
+    ESP_ROM_SPIFLASH_DIO_MODE,
+    ESP_ROM_SPIFLASH_DOUT_MODE,
+    ESP_ROM_SPIFLASH_FASTRD_MODE,
+    ESP_ROM_SPIFLASH_SLOWRD_MODE,
+} esp_rom_spiflash_read_mode_t;
+
+typedef enum {
+    ESP_ROM_SPIFLASH_RESULT_OK,
+    ESP_ROM_SPIFLASH_RESULT_ERR,
+    ESP_ROM_SPIFLASH_RESULT_TIMEOUT
+} esp_rom_spiflash_result_t;
+
+/**
+ * @brief Config SPI Flash read mode when init.
+ * @param mode : QIO/QOUT/DIO/DOUT/FastRD/SlowRD.
+ * @return ESP_ROM_SPIFLASH_RESULT_OK on success
+ */
+esp_rom_spiflash_result_t esp_rom_spiflash_config_readmode(esp_rom_spiflash_read_mode_t mode);
+
+/**
+ * @brief Config SPI Flash clock divisor.
+ * @param freqdiv: clock divisor (1 = 80MHz, 2 = 40MHz, 4 = 20MHz)
+ * @param spi: 0 for SPI0, 1 for SPI1
+ * @return ESP_ROM_SPIFLASH_RESULT_OK on success
+ */
+esp_rom_spiflash_result_t esp_rom_spiflash_config_clk(uint8_t freqdiv, uint8_t spi);
 #endif // ESP32C3
 
 typedef struct {
