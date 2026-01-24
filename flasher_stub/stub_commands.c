@@ -340,13 +340,7 @@ int handle_flash_get_sha256sum(uint32_t addr, uint32_t len) {
   /* Zero-initialize the context - ROM may expect this */
   memset(&ctx, 0, sizeof(ctx));
 
-  /* Configure SPI flash for faster reading:
-   * - Set clock to 40MHz (divisor 2 from 80MHz APB)
-   * - Use Fast Read mode (0x0B command with 8 dummy cycles)
-   * The ROM handles all the SPI timing correctly.
-   */
-  esp_rom_spiflash_config_clk(2, 1);  /* 40MHz on SPI1 */
-  esp_rom_spiflash_config_readmode(ESP_ROM_SPIFLASH_DIO_MODE);
+  /* Fast read mode is configured globally at stub startup */
 
   ets_sha_enable();
   ets_sha_init(&ctx, SHA2_256);
@@ -356,7 +350,6 @@ int handle_flash_get_sha256sum(uint32_t addr, uint32_t len) {
     if (n > FLASH_SECTOR_SIZE) {
       n = FLASH_SECTOR_SIZE;
     }
-    /* Use ROM SPIRead - now configured for fast read mode */
     res = SPIRead(addr, buf, n);
     if (res != 0) {
       ets_sha_disable();
@@ -368,10 +361,6 @@ int handle_flash_get_sha256sum(uint32_t addr, uint32_t len) {
   }
   ets_sha_finish(&ctx, digest);
   ets_sha_disable();
-
-  /* Restore default read mode for other operations */
-  esp_rom_spiflash_config_clk(4, 1);  /* 20MHz on SPI1 (default) */
-  esp_rom_spiflash_config_readmode(ESP_ROM_SPIFLASH_SLOWRD_MODE);
 #else
   /* Use software SHA256 implementation */
   SHA256_CTX_SW ctx;
