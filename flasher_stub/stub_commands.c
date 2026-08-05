@@ -7,14 +7,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include "stub_commands.h"
+#include "stub_write_flash.h"
+#include "stub_flasher.h"
+#include "rom_functions.h"
+#include "slip.h"
+#include "soc_support.h"
+#include "stub_io.h"
 
 /*
  * SHA256 implementation for stub flasher
- * ESP32-C3 uses hardware accelerator via ROM functions
+ * ESP32-C3 and ESP32-C5 use the hardware accelerator via ROM functions
  * Other chips use software implementation
  */
-#ifndef ESP32C3
-/* Software SHA256 implementation for non-ESP32C3 chips */
+#if !WITH_ROM_SHA256
+/* Software SHA256 implementation for chips without the ROM SHA API */
 typedef struct {
     uint32_t state[8];
     uint32_t count[2];
@@ -112,13 +118,7 @@ static void sha256_final(SHA256_CTX_SW *ctx, uint8_t digest[32]) {
         digest[i] = (uint8_t)((ctx->state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
     }
 }
-#endif /* !ESP32C3 */
-#include "stub_write_flash.h"
-#include "stub_flasher.h"
-#include "rom_functions.h"
-#include "slip.h"
-#include "soc_support.h"
-#include "stub_io.h"
+#endif /* !WITH_ROM_SHA256 */
 
 #if (ESP32S3 && !ESP32S3BETA2) || ESP32P4 || ESP32P4RC1 || ESP32C5
 static esp_rom_spiflash_result_t SPIRead4B(int spi_num, uint32_t flash_addr, uint8_t* buf, int len)
@@ -327,18 +327,42 @@ int handle_flash_get_md5sum(uint32_t addr, uint32_t len) {
   return 0;
 }
 
+#if WITH_ROM_SHA256
+/* Zero a ROM SHA context without calling memset(): the ESP32-C5 ROM does not
+   export memset, and -fno-builtin does not stop GCC from emitting a call to it
+   for a struct assignment. volatile keeps the loop from being turned back into
+   a memset call. */
+static void zero_sha_ctx(SHA_CTX *ctx) {
+  volatile uint32_t *p = (volatile uint32_t *)ctx;
+  for (uint32_t i = 0; i < sizeof(SHA_CTX) / sizeof(uint32_t); i++) {
+    p[i] = 0;
+  }
+}
+#endif // WITH_ROM_SHA256
+
+/* Read a chunk of flash, taking the >16MB addressing mode into account.
+   Shared by the hardware and software SHA256 paths below. */
+static uint8_t sha256_read_flash(uint32_t addr, uint8_t *buf, uint32_t len) {
+  #if (ESP32S3 && !ESP32S3BETA2) || ESP32P4 || ESP32P4RC1 || ESP32C5
+    if (large_flash_mode) {
+      return SPIRead4B(1, addr, buf, len);
+    }
+  #endif
+  return SPIRead(addr, (uint32_t *)buf, len);
+}
+
 int handle_flash_get_sha256sum(uint32_t addr, uint32_t len) {
   /* Use static buffers to avoid stack overflow in stub's limited memory */
   static uint8_t buf[FLASH_SECTOR_SIZE];
   uint8_t digest[32];
   uint8_t res = 0;
 
-#ifdef ESP32C3
+#if WITH_ROM_SHA256
   /* Use hardware SHA256 accelerator via ROM functions */
   static SHA_CTX ctx;
 
   /* Zero-initialize the context - ROM may expect this */
-  memset(&ctx, 0, sizeof(ctx));
+  zero_sha_ctx(&ctx);
 
   /* Fast read mode is configured globally at stub startup */
 
@@ -350,7 +374,7 @@ int handle_flash_get_sha256sum(uint32_t addr, uint32_t len) {
     if (n > FLASH_SECTOR_SIZE) {
       n = FLASH_SECTOR_SIZE;
     }
-    res = SPIRead(addr, buf, n);
+    res = sha256_read_flash(addr, buf, n);
     if (res != 0) {
       ets_sha_disable();
       return 0x63;
@@ -370,15 +394,7 @@ int handle_flash_get_sha256sum(uint32_t addr, uint32_t len) {
     if (n > FLASH_SECTOR_SIZE) {
       n = FLASH_SECTOR_SIZE;
     }
-    #if (ESP32S3 && !ESP32S3BETA2) || ESP32P4 || ESP32P4RC1 || ESP32C5
-      if (large_flash_mode) {
-        res = SPIRead4B(1, addr, buf, n);
-      } else {
-        res = SPIRead(addr, (uint32_t *)buf, n);
-      }
-    #else
-      res = SPIRead(addr, (uint32_t *)buf, n);
-    #endif // ESP32S3
+    res = sha256_read_flash(addr, buf, n);
     if (res != 0) {
       return 0x63;
     }
@@ -387,7 +403,7 @@ int handle_flash_get_sha256sum(uint32_t addr, uint32_t len) {
     len -= n;
   }
   sha256_final(&ctx, digest);
-#endif /* ESP32C3 */
+#endif /* WITH_ROM_SHA256 */
 
   /* Send raw 32 bytes */
   SLIP_send_frame_data_buf(digest, sizeof(digest));

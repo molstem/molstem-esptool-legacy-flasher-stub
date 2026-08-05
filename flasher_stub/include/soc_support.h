@@ -53,6 +53,13 @@
 #define IS_RISCV 1
 #endif // ESP32C3
 
+/* Chips whose ROM exposes the ets_sha_* hardware SHA API and the SPI flash
+   read-mode/clock helpers used by the custom SHA256 verify command.
+   Everything else falls back to the software SHA256 implementation. */
+#if ESP32C3 || ESP32C5
+#define WITH_ROM_SHA256 1
+#endif // ESP32C3 || ESP32C5
+
 #ifdef ESP32S3
 #define WITH_USB_JTAG_SERIAL 1
 #define WITH_USB_OTG 1

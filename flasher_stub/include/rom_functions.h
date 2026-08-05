@@ -82,8 +82,10 @@ void MD5Update(struct MD5Context *ctx, void *buf, uint32_t len);
 void MD5Final(uint8_t digest[16], struct MD5Context *ctx);
 #endif // not ESP32C2
 
-/* Hardware SHA functions available in ESP32-C3 ROM */
-#ifdef ESP32C3
+/* Hardware SHA functions available in the ESP32-C3 / ESP32-C5 ROM.
+   The SHA_CTX layout and the SHA_TYPE values used here are identical on both
+   chips (see esp_rom/esp32c{3,5}/include/esp32c{3,5}/rom/sha.h in ESP-IDF). */
+#if WITH_ROM_SHA256
 /* ets_status_t for ROM function return values */
 typedef enum {
     ETS_OK     = 0,
@@ -129,11 +131,14 @@ typedef enum {
     ESP_ROM_SPIFLASH_SLOWRD_MODE,
 } esp_rom_spiflash_read_mode_t;
 
+#ifndef ESP_ROM_SPIFLASH_RESULT_T_DEFINED
+#define ESP_ROM_SPIFLASH_RESULT_T_DEFINED
 typedef enum {
     ESP_ROM_SPIFLASH_RESULT_OK,
     ESP_ROM_SPIFLASH_RESULT_ERR,
     ESP_ROM_SPIFLASH_RESULT_TIMEOUT
 } esp_rom_spiflash_result_t;
+#endif // ESP_ROM_SPIFLASH_RESULT_T_DEFINED
 
 /**
  * @brief Config SPI Flash read mode when init.
@@ -149,7 +154,7 @@ esp_rom_spiflash_result_t esp_rom_spiflash_config_readmode(esp_rom_spiflash_read
  * @return ESP_ROM_SPIFLASH_RESULT_OK on success
  */
 esp_rom_spiflash_result_t esp_rom_spiflash_config_clk(uint8_t freqdiv, uint8_t spi);
-#endif // ESP32C3
+#endif // WITH_ROM_SHA256
 
 typedef struct {
     uint32_t device_id;
@@ -272,11 +277,14 @@ typedef enum {
     SPI_FLASH_QPI_MODE,
 } SpiFlashRdMode;
 
+#ifndef ESP_ROM_SPIFLASH_RESULT_T_DEFINED
+#define ESP_ROM_SPIFLASH_RESULT_T_DEFINED
 typedef enum {
     ESP_ROM_SPIFLASH_RESULT_OK,
     ESP_ROM_SPIFLASH_RESULT_ERR,
     ESP_ROM_SPIFLASH_RESULT_TIMEOUT
 } esp_rom_spiflash_result_t;
+#endif // ESP_ROM_SPIFLASH_RESULT_T_DEFINED
 
 #define CMD_RDID                    0x9F
 #define CMD_RDSR                    0x05

@@ -577,10 +577,10 @@ void stub_main()
   SPIParamCfg(0, FLASH_MAX_SIZE, FLASH_BLOCK_SIZE, FLASH_SECTOR_SIZE,
               FLASH_PAGE_SIZE, FLASH_STATUS_MASK);
 
-#ifdef ESP32C3
+#if WITH_ROM_SHA256
   /* Configure SPI flash for faster operations:
    * - Set clock to 40MHz (divisor 2 from 80MHz APB)
-   * - Use Fast Read mode (0x0B command with 8 dummy cycles)
+   * - Use DIO read mode
    */
   esp_rom_spiflash_config_clk(2, 1);  /* 40MHz on SPI1 */
   esp_rom_spiflash_config_readmode(ESP_ROM_SPIFLASH_DIO_MODE);
