@@ -120,7 +120,9 @@ void ets_sha_get_state(SHA_CTX *ctx);
 void ets_sha_process(SHA_CTX *ctx, const unsigned char *input);
 void ets_sha_update(SHA_CTX *ctx, const unsigned char *input, uint32_t input_bytes, bool update_ctx);
 ets_status_t ets_sha_finish(SHA_CTX *ctx, unsigned char *output);
+#endif // WITH_ROM_SHA256
 
+#if WITH_ROM_SPIFLASH_TUNING
 /* SPI Flash read mode configuration for faster reads */
 typedef enum {
     ESP_ROM_SPIFLASH_QIO_MODE = 0,
@@ -154,7 +156,7 @@ esp_rom_spiflash_result_t esp_rom_spiflash_config_readmode(esp_rom_spiflash_read
  * @return ESP_ROM_SPIFLASH_RESULT_OK on success
  */
 esp_rom_spiflash_result_t esp_rom_spiflash_config_clk(uint8_t freqdiv, uint8_t spi);
-#endif // WITH_ROM_SHA256
+#endif // WITH_ROM_SPIFLASH_TUNING
 
 typedef struct {
     uint32_t device_id;

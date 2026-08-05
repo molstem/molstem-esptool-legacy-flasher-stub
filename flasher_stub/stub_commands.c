@@ -366,9 +366,16 @@ int handle_flash_get_sha256sum(uint32_t addr, uint32_t len) {
 
   /* Fast read mode is configured globally at stub startup */
 
+  /* This mirrors bootloader_sha.c in ESP-IDF, which is the reference for
+     driving the ROM SHA on every non-ESP32 target. Two details matter:
+     no ets_sha_starts() (ets_sha_init is enough; sha512_t is meaningless for
+     SHA-256), and update_ctx = false so the digest state stays in the
+     peripheral instead of being read back and reloaded per block. The C3
+     tolerates the other form; the C5 returns a wrong digest for it. Nothing
+     else uses the SHA peripheral while this runs, so leaving the state in
+     hardware is safe. */
   ets_sha_enable();
   ets_sha_init(&ctx, SHA2_256);
-  ets_sha_starts(&ctx, 0);  /* 0 for non-SHA512/t variants */
   while (len > 0) {
     uint32_t n = len;
     if (n > FLASH_SECTOR_SIZE) {
@@ -379,7 +386,7 @@ int handle_flash_get_sha256sum(uint32_t addr, uint32_t len) {
       ets_sha_disable();
       return 0x63;
     }
-    ets_sha_update(&ctx, buf, n, true);  /* update_ctx = true */
+    ets_sha_update(&ctx, buf, n, false);
     addr += n;
     len -= n;
   }

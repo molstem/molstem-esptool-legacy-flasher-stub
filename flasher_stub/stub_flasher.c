@@ -577,10 +577,12 @@ void stub_main()
   SPIParamCfg(0, FLASH_MAX_SIZE, FLASH_BLOCK_SIZE, FLASH_SECTOR_SIZE,
               FLASH_PAGE_SIZE, FLASH_STATUS_MASK);
 
-#if WITH_ROM_SHA256
+#if WITH_ROM_SPIFLASH_TUNING
   /* Configure SPI flash for faster operations:
    * - Set clock to 40MHz (divisor 2 from 80MHz APB)
    * - Use DIO read mode
+   * Only safe where the erase path does not poke the SPI registers directly;
+   * see WITH_ROM_SPIFLASH_TUNING in soc_support.h.
    */
   esp_rom_spiflash_config_clk(2, 1);  /* 40MHz on SPI1 */
   esp_rom_spiflash_config_readmode(ESP_ROM_SPIFLASH_DIO_MODE);

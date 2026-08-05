@@ -53,12 +53,21 @@
 #define IS_RISCV 1
 #endif // ESP32C3
 
-/* Chips whose ROM exposes the ets_sha_* hardware SHA API and the SPI flash
-   read-mode/clock helpers used by the custom SHA256 verify command.
-   Everything else falls back to the software SHA256 implementation. */
+/* Chips whose ROM exposes the ets_sha_* hardware SHA API, used by the custom
+   SHA256 verify command. Everything else falls back to software SHA256. */
 #if ESP32C3 || ESP32C5
 #define WITH_ROM_SHA256 1
 #endif // ESP32C3 || ESP32C5
+
+/* Chips where stub_main() may globally switch SPI1 to 40MHz DIO reads.
+   NOT the ESP32-C5: start_next_erase() drives SPI_CMD_REG/SPI_ADDR_REG
+   directly instead of going through the ROM, so it inherits whatever state
+   this leaves behind and the sector erase silently does nothing - flash then
+   gets programmed without being erased, yielding old AND new. Reads and
+   writes are unaffected because they go through ROM functions. */
+#if ESP32C3
+#define WITH_ROM_SPIFLASH_TUNING 1
+#endif // ESP32C3
 
 #ifdef ESP32S3
 #define WITH_USB_JTAG_SERIAL 1
